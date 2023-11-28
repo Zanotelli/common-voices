@@ -1,0 +1,43 @@
+INICIALMENTE SEM NENHUMA MODIFICAÇÃO
+"Acurácia Final:  0.2"
+UTILIZANDO DADOS DE 
+10 FOLDS
+h <- 1.06 * sd(as.matrix(x)) * N^(-1/5)
+
+------------------------------------------
+ALTERAÇÕES NO KDE
+------------------------------------------
+Inclusão da pesquisa aleatória (Random Search) do parametro h que controla a largura do kernel e, portanto, afeta a suavização do KDE.
+------------------------------------------
+h_values <- seq(0.1, 2, by = 0.1)
+      [,1]
+ [1,] 0.20
+ [2,] 0.15
+ [3,] 0.20
+ [4,] 0.25
+ [5,] 0.20
+ [6,] 0.30 <----- MELHOR
+ [7,] 0.15
+ [8,] 0.15
+ [9,] 0.15
+[10,] 0.25
+------------------------------------------
+h_values <- seq(0.1, 0.5, by = 0.05)
+
+
+------------------------------------------
+O valor de k em k-fold cross-validation é um hiperparâmetro que você pode ajustar para equilibrar a variância e o viés na avaliação do desempenho do modelo. 
+Usamos k = 10 que é um valor que geralmente se começa. (O 5 tambem é muito usado)
+Podemos variar diferentes valores de k  
+------------------------------------------
+for (k in c(5, 10, 15, 20)) 
+
+
+------------------------------------------
+INCLUSÃO DO SVM APÓS O KDE
+------------------------------------------
+------------------------------------------
+------------------------------------------
+INCLUSÃO DO PCA ANTES DO KDE
+------------------------------------------
+------------------------------------------
