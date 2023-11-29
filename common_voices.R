@@ -101,7 +101,7 @@ accuracy <- matrix(NA, nrow = 10, ncol = 1)
 best <- 0
 
 for (j in seq_len(10)) {
-  n_te <- dim(treino)[1]*0.1
+  n_te <- 100 #dim(treino)[1]*0.1
   conjunto_teste <- ((j - 1) * n_te + 1):(j * n_te)
   test <- index[conjunto_teste]
   train <- index[-index[conjunto_teste]]
@@ -112,7 +112,7 @@ for (j in seq_len(10)) {
   y_test <- y[test]
   
   # Pesquisa aleatória para o parâmetro h
-  h_values <- seq(0.1, 0.5, by = 0.05)
+  h_values <- seq(0.1, 0.5, by = 0.1)
   best_accuracy <- 0
   best_h <- 0
   
@@ -170,13 +170,12 @@ for (class_label in 0:4) {
 c1 = x_train[y_train == 0, ]
 c2 = x_train[y_train == 1, ]
 y_hat <- integer(length(y_test))
-h <- 0.05
 
 for (i in 1:length(y_test)) {
   # Cálculo das densidades para cada classe
   p_values <- numeric(5)
   for (class_label in 0:4) {
-    p_values[class_label + 1] <- pdfKDE(x_test[i, ], nrow(x_train[y_train == class_label, ]), x_train[y_train == class_label, ], h)
+    p_values[class_label + 1] <- pdfKDE(x_test[i, ], nrow(x_train[y_train == class_label, ]), x_train[y_train == class_label, ], best_h)
   }
   
   # Cálculo da razão de probabilidades para cada par de classes
