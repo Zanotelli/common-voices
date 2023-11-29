@@ -15,30 +15,30 @@ y <- treino$y_num
 
 #--------------------Implementa Pre-Processamento - PCA
 # Diminui a dimensionalidade e Verifica quais features sao mais discriminativas
-trans <- preProcess(treino, method = c("pca"))
-PC <- predict(trans, treino)
+# trans <- preProcess(treino, method = c("pca"))
+# PC <- predict(trans, treino)
 #-----------------------------------------------
 
 #--------------------Inclui TARGET pós Pre-Processamento
 # Incluir as colunas da variável de destino nas duas primeiras componentes principais
-PC_y <- cbind(PC[, 1:2], y_num = as.numeric(treino$y_num))
+# PC_y <- cbind(PC[, 1:2], y_num = as.numeric(treino$y_num))
 # Plotar um gráfico de dispersão
-plot(PC_y$PC1, PC_y$PC2, pch = 16, col = PC_y$y_num,
-     main = "Scatter Plot das PC1 e PC2 com a variável de destino", xlab = "PC1", ylab = "PC2")
+# plot(PC_y$PC1, PC_y$PC2, pch = 16, col = PC_y$y_num,
+#     main = "Scatter Plot das PC1 e PC2 com a variável de destino", xlab = "PC1", ylab = "PC2")
 #-----------------------------------------------
 
 #--------------------Gera gráfico de Autovalores
 # Calcula os autovalores
-eigenvalues <- eigen(cov(PC))$values
+# eigenvalues <- eigen(cov(PC))$values
 
 # Calcula a proporção da variância explicada
-variance_explained <- eigenvalues / sum(eigenvalues)
+# variance_explained <- eigenvalues / sum(eigenvalues)
 # Gera o gráfico dos autovalores
-plot(variance_explained, type = "b", ylab = "Proporção da Variância Explicada", xlab = "Componente Principal", main = "Gráfico dos Autovalores")
+# plot(variance_explained, type = "b", ylab = "Proporção da Variância Explicada", xlab = "Componente Principal", main = "Gráfico dos Autovalores")
 #-----------------------------------------------
 
 # Seleciona as 10 primeiras componentes principais
-treino <- PC[, (1:10)]
+# treino <- PC[, (1:10)]
 
 #-----------------------------------------------
 #-----------------------------------------------
@@ -103,8 +103,10 @@ accuracy <- matrix(NA, nrow = 10, ncol = 1)
 best <- 0
 
 for (j in seq_len(10)) {
-  test <- index[((j - 1) * 20 + 1):(j * 20)]
-  train <- index[-index[((j - 1) * 20 + 1):(j * 20)]]
+  n_te <- dim(treino)[1]*0.1
+  conjunto_teste <- ((j - 1) * n_te + 1):(j * n_te)
+  test <- index[conjunto_teste]
+  train <- index[-index[conjunto_teste]]
   
   x_train <- treino[train, 2:40]
   y_train <- treino[train, "y_num"]
@@ -166,12 +168,13 @@ for (class_label in 0:4) {
 c1 = x_train[y_train == 0, ]
 c2 = x_train[y_train == 1, ]
 y_hat <- integer(length(y_test))
+h=0.05
 
 for (i in 1:length(y_test)) {
   # Cálculo das densidades para cada classe
   p_values <- numeric(5)
   for (class_label in 0:4) {
-    p_values[class_label + 1] <- pdfKDE(x_test[i, ], nrow(x_train[y_train == class_label, ]), x_train[y_train == class_label, ])
+    p_values[class_label + 1] <- pdfKDE(x_test[i, ], nrow(x_train[y_train == class_label, ]), x_train[y_train == class_label, ], h)
   }
   
   # Cálculo da razão de probabilidades para cada par de classes
