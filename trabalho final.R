@@ -4,39 +4,41 @@ rm(list=ls())
 #Bibliotecas
 library(caret)
 
-#Importa CSVs
+# Importa CSVs
 treino <- read.csv("treino.csv")
 
-#Transforma colunas da TARGET de texto para numeros
+# Transforma colunas da TARGET de texto para numeros
 treino$y <- factor(treino$y, levels = c('teens', 'twenties', 'thirties', 'fourties', 'fifties'))
 treino$y_num <- as.numeric(treino$y) - 1
 treino <- treino[, -which(names(treino) == 'y')]
+y <- treino$y_num
 
 #--------------------Implementa Pre-Processamento - PCA
-#Diminui a dimensionalidade e Verifica quais features sao mais discriminativas
-#trans <- preProcess(treino_normalizado, method = c("pca"))
-#PC <- predict(trans, treino_normalizado)
+# Diminui a dimensionalidade e Verifica quais features sao mais discriminativas
+trans <- preProcess(treino, method = c("pca"))
+PC <- predict(trans, treino)
 #-----------------------------------------------
 
 #--------------------Inclui TARGET pós Pre-Processamento
 # Incluir as colunas da variável de destino nas duas primeiras componentes principais
-#PC_y <- cbind(PC[, 1:2], y_num = as.numeric(treino$y_num))
+PC_y <- cbind(PC[, 1:2], y_num = as.numeric(treino$y_num))
 # Plotar um gráfico de dispersão
-#plot(PC_y$PC1, PC_y$PC2, pch = 16, col = PC_y$y_num,
-#     main = "Scatter Plot das PC1 e PC2 com a variável de destino", xlab = "PC1", ylab = "PC2")
+plot(PC_y$PC1, PC_y$PC2, pch = 16, col = PC_y$y_num,
+     main = "Scatter Plot das PC1 e PC2 com a variável de destino", xlab = "PC1", ylab = "PC2")
 #-----------------------------------------------
 
 #--------------------Gera gráfico de Autovalores
 # Calcula os autovalores
-#eigenvalues <- eigen(cov(PC))$values
+eigenvalues <- eigen(cov(PC))$values
+
 # Calcula a proporção da variância explicada
-#variance_explained <- eigenvalues / sum(eigenvalues)
+variance_explained <- eigenvalues / sum(eigenvalues)
 # Gera o gráfico dos autovalores
-#plot(variance_explained, type = "b", ylab = "Proporção da Variância Explicada", xlab = "Componente Principal", main = "Gráfico dos Autovalores")
+plot(variance_explained, type = "b", ylab = "Proporção da Variância Explicada", xlab = "Componente Principal", main = "Gráfico dos Autovalores")
 #-----------------------------------------------
 
 # Seleciona as 10 primeiras componentes principais
-#treino <- PC[, (1:10)]
+treino <- PC[, (1:10)]
 
 #-----------------------------------------------
 #-----------------------------------------------
@@ -91,11 +93,12 @@ bayes_classifier <- function(x_train, y_train, x_test){
 
 #-----------------------------------------------
 # Separar em X e Y
-x <- treino[, 2:40]  # Considerando as 39 colunas de características
-y <- treino[, "y_num"]
+#x <- treino[, 2:40]  # Considerando as 39 colunas de características
+#y <- treino[, "y_num"]
 #x <- as.matrix(treino[, !names(treino) %in% c('y_num', 'id')])
 #y <- as.vector(treino$y_num)  # Ajustado para vetor
-index <- sample(1:nrow(x), length(1:nrow(x)))
+index <- sample(1:nrow(treino), length(1:nrow(treino)))
+
 
 # Obtem-se acurácia obtida para cada iteração, o desvio padrão das acurácias e a média das acurácias
 accuracy <- matrix(NA, nrow = 10, ncol = 1)
