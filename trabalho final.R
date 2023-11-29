@@ -46,12 +46,10 @@ treino <- PC[, (1:10)]
 #-----------------------------------------------
 #-----------------------------------------------
 
-#--------------------Funções
-# define a função KDE
-pdfKDE <- function(xi, N, x) {
+#--------------------Funções--------------------
+# Define a função KDE
+pdfKDE <- function(xi, N, x, h) {
   sum <- 0
-  h <- 1.06 * sd(as.matrix(x)) * N^(-1/5)
-  
   for (i in 1:N) {
     xi_matrix <- as.matrix(xi)
     x_i_matrix <- as.matrix(x[i, ])
@@ -68,8 +66,8 @@ pdfKDE <- function(xi, N, x) {
   return(p)
 }
 
-# Validação cruzada com 10 folds usando bayes
-bayes_classifier <- function(x_train, y_train, x_test){
+# Função do classificador bayesiano ajustada para aceitar h como argumento
+bayes_classifier <- function(x_train, y_train, x_test, h){
   class_probabilities <- table(y_train) / length(y_train)
   
   y_hat <- numeric(length = nrow(x_test))
@@ -79,7 +77,7 @@ bayes_classifier <- function(x_train, y_train, x_test){
     
     for (c in levels(factor(y_train))) {
       class_indices <- which(y_train == c)
-      p <- pdfKDE(x_test[i, ], N = length(class_indices), x = x_train[class_indices, ])
+      p <- pdfKDE(x_test[i, ], N = length(class_indices), x = x_train[class_indices, ], h = h)
       
       class_scores[as.numeric(c)] <- sum(log(p) * class_probabilities[c])
     }
@@ -91,44 +89,106 @@ bayes_classifier <- function(x_train, y_train, x_test){
   return(y_hat)
 }
 
-#-----------------------------------------------
+#-------------------TEN FOLD-----------------------
 # Separar em X e Y
-#x <- treino[, 2:40]  # Considerando as 39 colunas de características
-#y <- treino[, "y_num"]
-#x <- as.matrix(treino[, !names(treino) %in% c('y_num', 'id')])
-#y <- as.vector(treino$y_num)  # Ajustado para vetor
-index <- sample(1:nrow(treino), length(1:nrow(treino)))
+x <- treino[, 2:40]  
+y <- (as.matrix(as.numeric(treino[, "y_num"])))
+set.seed(123)  # Define a semente para reproducibilidade
+index <- sample(1:nrow(x), 0.8 * nrow(x))  # 80% para treino
+#index <- sample(1:nrow(x), length(1:nrow(x)))
 
-
-# Obtem-se acurácia obtida para cada iteração, o desvio padrão das acurácias e a média das acurácias
+# Loop de validação cruzada com pesquisa aleatória para o parâmetro h
+set.seed(123)  # Define a semente para reproducibilidade
 accuracy <- matrix(NA, nrow = 10, ncol = 1)
-j <- 1
 best <- 0
-# Loop de validação cruzada
-for (i in seq(20, 200, 20)) {
-  test <- index[(i - 19):i]
-  train <- index[-index[(i - 19):i]]
+
+for (j in seq_len(10)) {
+  test <- index[((j - 1) * 20 + 1):(j * 20)]
+  train <- index[-index[((j - 1) * 20 + 1):(j * 20)]]
   
-  x_train <- x[train, ]
-  y_train <- y[train]
-  x_test <- x[test, ]
-  y_test <- y[test]
+  x_train <- treino[train, 2:40]
+  y_train <- treino[train, "y_num"]
+  x_test <- treino[test, 2:40]
+  y_test <- treino[test, "y_num"]
   
-  # Chama o classificador bayesiano
-  y_hat <- bayes_classifier(x_train, as.numeric(y_train), x_test)
+  # Pesquisa aleatória para o parâmetro h
+  h_values <- seq(0.1, 0.5, by = 0.05)
+  best_accuracy <- 0
+  best_h <- 0
   
-  # Calcula a acurácia
-  aux <- sum(y_test == y_hat) / length(y_test)
-  accuracy[j, ] <- aux
-  if(aux > best){
-    best_train <- train
-    best_test <- test
-    save_index <- j
-    best <- aux 
+  for (h in h_values) {
+    # Chama o classificador bayesiano com o valor atual de h
+    y_hat <- bayes_classifier(x_train, y_train, x_test, h)
+    
+    # Calcula a acurácia
+    aux <- sum(y_test == y_hat) / length(y_test)
+    
+    # Atualiza o melhor valor de h e acurácia se necessário
+    if (aux > best_accuracy) {
+      best_train <- train
+      best_test <- test
+      best_h <- h
+      best_accuracy <- aux
+    }
   }
-  j <- j+1
+  
+  # Exibe o melhor valor de h encontrado para cada fold
+  cat("Melhor valor de h encontrado para fold", j, ":", best_h, "\n")
+  cat("Acurácia: ", round(best_accuracy, 4), "\n")
+  # Armazena a acurácia para este fold
+  accuracy[j, ] <- best_accuracy
 }
 
+# Exibe as acurácias e estatísticas
+print("Acurácias:")
 print(accuracy)
-print(apply(accuracy, 2, sd))
-print(apply(accuracy, 2, mean))
+cat("Média da Acurácia:", mean(accuracy), "\n")
+cat("Desvio Padrão da Acurácia:", sd(accuracy), "\n")
+
+#-------------------------------------------------------
+
+#treina os dados 
+test <- best_test
+train <- best_train
+x_train <- x[train, ]
+y_train <- y[train]
+x_test <- x[test, ]
+y_test <- y[test]
+
+y_hat <- integer(length(y_test))
+espaco_de_verossimilhanca <- matrix(0, nrow = length(y_test), ncol = 2)  # Inicializa com zeros
+
+# Calcula as probabilidades para cada classe
+p_classes <- numeric(5)
+for (class_label in 0:4) {
+  p_classes[class_label + 1] <- sum(y_train == class_label) / length(y_train)
+}
+c1 = x_train[y_train == 0, ]
+c2 = x_train[y_train == 1, ]
+y_hat <- integer(length(y_test))
+
+for (i in 1:length(y_test)) {
+  # Cálculo das densidades para cada classe
+  p_values <- numeric(5)
+  for (class_label in 0:4) {
+    p_values[class_label + 1] <- pdfKDE(x_test[i, ], nrow(x_train[y_train == class_label, ]), x_train[y_train == class_label, ])
+  }
+  
+  # Cálculo da razão de probabilidades para cada par de classes
+  K_values <- numeric(5)
+  for (class_label in 0:4) {
+    K_values[class_label + 1] <- (p_values[class_label + 1] * p_classes[class_label + 1]) / sum(p_values * p_classes)
+  }
+  
+  # Atribuição da previsão com base na classe com maior K
+  y_hat[i] <- which.max(K_values) - 1
+  
+  # Preenche a matriz espaco_de_verossimilhanca com os valores das densidades
+  espaco_de_verossimilhanca[i, ] <- c(p_values[1], p_values[2])  # Ajuste conforme apropriado
+}
+
+#------------------------------------------------------
+
+# Avaliação do desempenho
+final_accuracy <- sum(y_test == y_hat) / length(y_test)
+print(paste("Acurácia Final: ", final_accuracy)) 
