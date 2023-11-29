@@ -101,8 +101,10 @@ accuracy <- matrix(NA, nrow = 10, ncol = 1)
 best <- 0
 
 for (j in seq_len(10)) {
-  test <- index[((j - 1) * 20 + 1):(j * 20)]
-  train <- index[-index[((j - 1) * 20 + 1):(j * 20)]]
+  n_te <- dim(treino)[1]*0.1
+  conjunto_teste <- ((j - 1) * n_te + 1):(j * n_te)
+  test <- index[conjunto_teste]
+  train <- index[-index[conjunto_teste]]
   
   x_train <- treino[train,]
   y_train <- y[train]
