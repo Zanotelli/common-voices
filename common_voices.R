@@ -3,6 +3,9 @@ rm(list=ls())
 
 #Bibliotecas
 library(caret)
+library(MASS)
+install.packages("e1071")
+library(e1071)
 
 # Importa CSVs
 treino <- read.csv("treino.csv")
@@ -38,7 +41,7 @@ plot(variance_explained, type = "b", ylab = "Proporção da Variância Explicada
 #-----------------------------------------------
 
 # Seleciona as 10 primeiras componentes principais
-treino <- PC[, (1:10)]
+treino <- PC[, (1:7)]
 
 #-----------------------------------------------
 #-----------------------------------------------
@@ -47,8 +50,7 @@ treino <- PC[, (1:10)]
 #-----------------------------------------------
 
 #--------------------Funções--------------------
-# Define a função KDE
-pdfKDE <- function(xi, N, x, h) {
+pdfKDEOld <- function(xi, N, x, h) {
   sum <- 0
   for (i in 1:N) {
     xi_matrix <- as.matrix(xi)
@@ -66,28 +68,31 @@ pdfKDE <- function(xi, N, x, h) {
   return(p)
 }
 
+
 # Função do classificador bayesiano ajustada para aceitar h como argumento
-bayes_classifier <- function(x_train, y_train, x_test, h){
+bayes_classifier <- function(x_train, y_train, x_test, h) {
   class_probabilities <- table(y_train) / length(y_train)
+  num_classes <- length(levels(factor(y_train)))
   
   y_hat <- numeric(length = nrow(x_test))
   
   for (i in 1:nrow(x_test)) {
-    class_scores <- numeric(length = max(y_train))
+    class_scores <- numeric(length = num_classes)
     
-    for (c in levels(factor(y_train))) {
-      class_indices <- which(y_train == c)
-      p <- pdfKDE(x_test[i, ], N = length(class_indices), x = x_train[class_indices, ], h = h)
+    for (c in 1:num_classes) {
+      class_indices <- which(y_train == levels(factor(y_train))[c])
+      #p <- pdfKDE(x_test[i,], length(class_indices), x_train[class_indices,])
       
-      class_scores[as.numeric(c)] <- sum(log(p) * class_probabilities[c])
+      class_scores[c] <- sum(log(p$y) + log(class_probabilities[c]))
     }
     
     predicted_class <- which.max(class_scores)
-    y_hat[i] <- predicted_class
+    y_hat[i] <- levels(factor(y_train))[predicted_class]
   }
   
   return(y_hat)
 }
+
 
 #-------------------TEN FOLD-----------------------
 
@@ -97,6 +102,7 @@ index <- sample(1:nrow(treino), 0.8 * nrow(treino))  # 80% para treino
 
 # Loop de validação cruzada com pesquisa aleatória para o parâmetro h
 set.seed(123)  # Define a semente para reproducibilidade
+h_values <- seq(0.1, 1, by = 0.05)
 accuracy <- matrix(NA, nrow = 10, ncol = 1)
 best <- 0
 
@@ -110,33 +116,12 @@ for (j in seq_len(10)) {
   y_train <- y[train]
   x_test <- treino[test,]
   y_test <- y[test]
+
   
-  # Pesquisa aleatória para o parâmetro h
-  h_values <- seq(0.1, 0.5, by = 0.1)
-  best_accuracy <- 0
-  best_h <- 0
+  svm_model <- svm(x_train, y_train, kernel = "radial", cost = 10)
+  y_svm <- predict(svm_model, x_test)
+  accuracy[j] <- sum(y_test == round(y_svm)) / length(y_test)
   
-  for (h in h_values) {
-    # Chama o classificador bayesiano com o valor atual de h
-    y_hat <- bayes_classifier(x_train, y_train, x_test, h)
-    
-    # Calcula a acurácia
-    aux <- sum(y_test == y_hat) / length(y_test)
-    
-    # Atualiza o melhor valor de h e acurácia se necessário
-    if (aux > best_accuracy) {
-      best_train <- train
-      best_test <- test
-      best_h <- h
-      best_accuracy <- aux
-    }
-  }
-  
-  # Exibe o melhor valor de h encontrado para cada fold
-  cat("Melhor valor de h encontrado para fold", j, ":", best_h, "\n")
-  cat("Acurácia: ", round(best_accuracy, 4), "\n")
-  # Armazena a acurácia para este fold
-  accuracy[j, ] <- best_accuracy
 }
 
 # Exibe as acurácias e estatísticas
@@ -151,16 +136,32 @@ cat("Desvio Padrão da Acurácia:", sd(accuracy), "\n")
 
 #-------------------------------------------------------
 
+# Importa dados de teste
+validacao <- read.csv("validacao.csv")
+treino1 <- read.csv("treino.csv")
+treino1 <- treino1[,-c(1,41)]
+validacao <- validacao[,-1]
+dados<-rbind(validacao, treino1)
+
+trans1 <- preProcess(dados, method = c("pca"))
+PC1 <- predict(trans1, dados)
+
+eigenvalues1 <- eigen(cov(PC1))$values
+variance_explained1 <- eigenvalues1 / sum(eigenvalues1)
+plot(variance_explained1, type = "b", ylab = "Proporção da Variância Explicada", xlab = "Componente Principal", main = "Gráfico dos Autovalores 2")
+dados <- PC1[, (1:10)]
+
+
+#-------------------------------------------------------
+
 #treina os dados 
 test <- best_test
 train <- best_train
 x_train <- treino[train, ]
 y_train <- y[train]
-x_test <- treino[test, ]
+x_test <- dados[1:dim(validacao)[1],] #treino[test, ]
 y_test <- y[test]
 
-y_hat <- integer(length(y_test))
-espaco_de_verossimilhanca <- matrix(0, nrow = length(y_test), ncol = 2)  # Inicializa com zeros
 
 # Calcula as probabilidades para cada classe
 p_classes <- numeric(5)
@@ -169,13 +170,14 @@ for (class_label in 0:4) {
 }
 c1 = x_train[y_train == 0, ]
 c2 = x_train[y_train == 1, ]
-y_hat <- integer(length(y_test))
+y_hat <- integer(dim(x_test)[1])
+espaco_de_verossimilhanca <- matrix(0, nrow = length(y_test), ncol = 2)  # Inicializa com zeros
 
-for (i in 1:length(y_test)) {
+for (i in 1:length(x_test)) {
   # Cálculo das densidades para cada classe
   p_values <- numeric(5)
   for (class_label in 0:4) {
-    p_values[class_label + 1] <- pdfKDE(x_test[i, ], nrow(x_train[y_train == class_label, ]), x_train[y_train == class_label, ], best_h)
+    p_values[class_label + 1] <- pdfKDE(x_test[i, ], nrow(x_train[y_train == class_label, ]), x_train[y_train == class_label, ], h_model)
   }
   
   # Cálculo da razão de probabilidades para cada par de classes
@@ -196,3 +198,44 @@ for (i in 1:length(y_test)) {
 # Avaliação do desempenho
 final_accuracy <- sum(y_test == y_hat) / length(y_test)
 print(paste("Acurácia Final: ", final_accuracy)) 
+
+
+
+#-----------------------------------------------
+#-----------------------------------------------
+#------------------------ SVM ------------------
+#-----------------------------------------------
+#-----------------------------------------------
+# Calcula as estimativas de densidade para o conjunto de treino completo
+pdf_values <- matrix(0, nrow = nrow(x_train), ncol = 5)
+
+for (i in 1:nrow(x_train)) {
+  for (class_label in 0:4) {
+    pdf_values[i, class_label + 1] <- pdfKDE(x_train[i,], sum(y_train == class_label), x_train[y_train == class_label,], h_model)
+  }
+}
+
+# Adiciona as estimativas de densidade como features ao conjunto de treino
+treino_final <- cbind(x_train, pdf_values)
+
+# Divide novamente em X e Y após adicionar as novas features
+x <- treino[, 2:44]
+y <- as.matrix(as.numeric(treino[, "y_num"]))
+
+test <- best_test
+train <- best_train
+x_train <- treino[train, ]
+y_train <- y[train]
+x_test <- treino[test, ]
+y_test <- y[test]
+
+
+# Define os parâmetros do modelo SVM
+svm_model <- svm(treino, y, kernel = "radial", cost = 10)
+
+# Faz as previsões no conjunto de teste
+y_svm <- predict(svm_model, treino[test_model,])
+
+# Avaliação do desempenho do SVM
+svm_accuracy <- sum(y_test == y_svm) / length(y_test)
+print(paste("Acurácia do SVM: ", svm_accuracy))
